@@ -191,8 +191,11 @@ OPTIONS:
         dot_ls hidden "$@"
     elif [[ -d "$1" ]]; then
         dot_nav "$@"
+        dot_ls "$@"
     elif [[ "$1" == "-" || "$1" == "..." ]]; then
+        shift 1
         popd > /dev/null 2>&1
+        dot_ls "$@"
     elif [[ "$1" == ".." ]]; then
         cd ..
     elif [[ "$1" == "-h" || "$1" == "--home" ]]; then

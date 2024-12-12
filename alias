@@ -1,5 +1,8 @@
 alias .="dot"
+alias ..="dot .."
+alias -="dot -"
 alias ,.="dot --hidden"
+alias .,="dot --hidden"
 alias .x="dot -x"
 alias .h="dot -h"
 alias .s="dot -s"
