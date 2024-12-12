@@ -31,8 +31,8 @@ function dot() {
     function dot_open() {
         local ext=${1##*.}
         local default_cmd=$(yq e '.open.default // "xdg-open"' $CONFIG_FILE)
-        local cmd=$(yq e ".open.${ext} // "$default_cmd"" $CONFIG_FILE)
-        eval "$cmd "$1""
+        local cmd=$(yq e ".open.${ext} // \"$default_cmd\"" $CONFIG_FILE)
+        eval "$cmd $1"
     }
 
     function dot_exec() {
@@ -201,7 +201,7 @@ OPTIONS:
     elif [[ "$1" == "-c" || "$1" == "--config" ]]; then
         shift 1
         dot_config "$@"
-    elif [[ "$1" == "-r" || "$1" == "--rc" ]]; then
+    elif [[ "$1" == "-rc" || "$1" == "--rc" ]]; then
         shift 1
         dot_rc "$@"
     elif [[ "$1" == "-a" || "$1" == "--alias" ]]; then
@@ -233,5 +233,3 @@ OPTIONS:
         dot_help
     fi
 }
-
-alias .="dot"
