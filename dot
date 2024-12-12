@@ -1,0 +1,237 @@
+#! /bin/bash
+
+function dot() {
+    local CONFIG_FILE="${BASH_SOURCE%/*}/yml/dot.yml"
+
+    function dot_ls(){
+        if [[ "$1" == "hidden" ]]; then
+            if [[ -n "$DOT_LS_HIDDEN" ]]; then
+                shift 1
+                "$DOT_LS_HIDDEN" "$@"
+            else
+                ls -a --color=auto --group-directories-first
+            fi
+        else
+            if [[ -n "$DOT_LS" ]]; then
+                "$DOT_LS" "$@"
+            else
+                ls --color=auto --group-directories-first
+            fi  
+        fi
+    }
+
+    function dot_nav() {
+        if [[ -n "$DOT_CD" ]]; then
+            "$DOT_CD" "$@"
+        else
+            pushd $1 > /dev/null 2>&1
+        fi        
+    }
+
+    function dot_open() {
+        local ext=${1##*.}
+        local default_cmd=$(yq e '.open.default // "xdg-open"' $CONFIG_FILE)
+        local cmd=$(yq e ".open.${ext} // "$default_cmd"" $CONFIG_FILE)
+        eval "$cmd "$1""
+    }
+
+    function dot_exec() {
+        local ext=${1##*.}
+        local cmd=$(yq e ".exec.${ext} $CONFIG_FILE")
+        if [[ -n "$cmd" ]]; then
+            eval "$cmd "$1""
+        fi
+    }
+
+    function dot_help(){
+        echo "
+
+DESCRIPTION:
+    Navigate in directory stack, and open and execute files.
+
+USAGE:
+    dot [option] [argument]
+
+OPTIONS:
+    [dir] ...................... Navigate to the specified directory and list contents
+    [file] ..................... Open the specified file according to its extension
+    -, ... ..................... Go back to the previous directory in the stack
+    .. ......................... Navigate to parent directory
+    -h, --home [user] .......... Move to the user's home directory
+    -c, --config [alias] ....... Move to the config directory with given alias
+    -r, --rc [alias] ........... Open rc file with given alias
+    -a, --alias [alias] ........ Navigate or open alias directory or file
+    -s, --src [file] ........... Source the file
+    -x, --exec [file] .......... Execute the file according to its extension
+    -p, --preview [dir] ........ Open fzf in preview mode for the given directory
+    -n, --name [entry].......... Rename the given entry
+    -d, --delete [entry] ....... Safely delete the given entry
+    -rm, --remove [entry] ...... Permanently remove the given entry
+
+    "
+    }
+
+    function dot_home(){
+        if [[ -z "$1" ]]; then
+            cd $HOME
+        else
+            mapfile -t USERS < <(users)
+            if [[ "${USERS[@]}" =~ "$1" ]]; then
+                cd /home/$1
+            else
+                echo "error: user $1 not exists."
+                return 1
+            fi
+        fi
+    }
+
+    function clean_trash() {
+        TRASH_DIR=$(yq e ".trash.path // \"$HOME/.trash\"" $CONFIG_FILE)
+        local CLEAN_TIME_DAYS=$(yq e '.trash.clean.time // 30' $CONFIG_FILE)
+        local CLEAN_SIZE_MB=$(yq e '.trash.clean.size' $CONFIG_FILE)
+        find "$TRASH_DIR" -type f -mtime +$CLEAN_TIME_DAYS -exec rm {} \;
+        if [[ -n "$CLEAN_SIZE_MB" && "$CLEAN_SIZE_MB" != "null" ]]; then
+            local trash_size
+            trash_size=$(du -sm "$TRASH_DIR" | cut -f1)
+            while [[ $trash_size -gt $CLEAN_SIZE_MB ]]; do
+                find "$TRASH_DIR" -type f -printf '%T+ %p\n' | sort | head -n 50 | cut -d' ' -f2- | xargs rm
+                trash_size=$(du -sm "$TRASH_DIR" | cut -f1)
+            done  
+        fi 
+    }
+
+    function dot_del(){
+        TRASH_LOG="$TRASH_DIR/trash.log"
+        clean_trash
+        if [[ ! -f "$TRASH_LOG" ]]; then
+            touch "$TRASH_LOG"
+        fi
+        if [[ "$1" == "--undo" ]]; then
+            local last_entry=$(tail -n 1 "$TRASH_LOG")
+            if [[ -n "$last_entry" ]]; then
+                local src=$(echo "$last_entry" | cut -d '|' -f1)
+                local dest=$(echo "$last_entry" | cut -d '|' -f2)
+                mv "$dest" "$src"
+                sed -i '$ d' "$TRASH_LOG"
+            else
+                echo "No deletion to undo."
+            fi
+        elif [[ -e "$1" ]]; then
+            local timestamp=$(date +%s)
+            local dest_file="$TRASH_DIR/$(basename "$1").$timestamp"
+            mv "$1" "$dest_file"
+            echo "$1|$dest_file" >> "$TRASH_LOG"
+        fi
+    }
+
+    function dot_rm(){
+        if [[ -e "$1" ]]; then
+            rm -rf "$1"
+        fi
+    }
+
+    function dot_config(){
+        if [[ -z "$1" ]]; then
+            cd $HOME/.config
+        else
+            local config_dir=$(yq e ".paths.config.${2}" $CONFIG_FILE)
+            if [[ -n "$config_dir" && "$config_dir" != "null" ]]; then
+                cd "$config_dir"
+            fi
+        fi
+    }
+
+    function dot_rc(){
+        if [[ -z "$1" ]]; then
+            dot_open $HOME/.bashrc
+        else
+            local rc_file=$(yq e ".paths.rc.${2}" $CONFIG_FILE)
+            if [[ -n "$rc_file" && "$rc_file" != "null" ]]; then
+                dot_open "$rc_file"
+            fi
+        fi
+    }
+    
+    function dot_alias(){
+        local alias_path=$(yq e ".paths.alias.dirs.${2} // .paths.alias.files.${2}" $CONFIG_FILE)
+        if [[ -n "$alias_path" ]]; then
+            if [[ -d "$alias_path" ]]; then
+                cd "$alias_path"
+            elif [[ -f "$alias_path" ]]; then
+                dot_open "$alias_path"
+            fi
+        fi
+    }
+
+    function dot_preview(){
+        if [[ -n $(which fzf) ]]; then
+            fzf --preview="cat {}"
+        fi
+    }
+
+    function dot_source(){
+        if [[ -f "$1" ]]; then
+            source $1
+        fi
+    }
+
+    function dot_name(){
+        if [[ -e "$1" ]] && [[ -n "$2" ]]; then
+            mv "$1" "$2"
+        fi
+    }
+
+    if [[ -z "$1" || "$1" == "-l" || "$1" == "--ls" ]]; then
+        shift 1
+        dot_ls "$@"
+    elif [[ "$1" == "--help" ]]; then
+        dot_help
+    elif [[ "$1" == "--hidden" ]]; then
+        shift 1
+        dot_ls hidden "$@"
+    elif [[ -d "$1" ]]; then
+        dot_nav "$@"
+    elif [[ "$1" == "-" || "$1" == "..." ]]; then
+        popd > /dev/null 2>&1
+    elif [[ "$1" == ".." ]]; then
+        cd ..
+    elif [[ "$1" == "-h" || "$1" == "--home" ]]; then
+        shift 1
+        dot_home "$@"    
+    elif [[ "$1" == "-c" || "$1" == "--config" ]]; then
+        shift 1
+        dot_config "$@"
+    elif [[ "$1" == "-r" || "$1" == "--rc" ]]; then
+        shift 1
+        dot_rc "$@"
+    elif [[ "$1" == "-a" || "$1" == "--alias" ]]; then
+        shift 1
+        dot_alias "$@"
+    elif [[ "$1" == "-s" || "$1" == "--source" ]]; then
+        shift 1
+        dot_source "$@"
+    elif [[ "$1" == "-x" || "$1" == "--exec" ]]; then
+        shift 1
+        if [[ -f "$2" ]]; then 
+            dot_exec $2
+        fi
+    elif [[ "$1" == "-p" || "$1" == "--preview" ]]; then
+        shift 1
+        dot_preview "$@"
+    elif [[ "$1" == "-n" || "$1" == "--name" ]]; then
+        shift 1
+        dot_name "$@"
+    elif [[ "$1" == "-d" || "$1" == "--delete" ]]; then
+        shift 1
+        dot_del "$@"
+    elif [[ "$1" == "-rm" || "$1" == "--remove" ]]; then
+        shift 1
+        dot_rm "$@"
+    elif [[ -f "$1" ]]; then
+        dot_open $1
+    else
+        dot_help
+    fi
+}
+
+alias .="dot"
