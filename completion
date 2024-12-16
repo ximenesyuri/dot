@@ -1,0 +1,65 @@
+#!/bin/bash
+
+function _dot_alias_completion() {
+    local CONFIG_FILE="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)/yml/dot.yml"
+    local current_word="${COMP_WORDS[COMP_CWORD]}"
+    local alias_path=".alias"
+    
+    if [[ ! -f "$CONFIG_FILE" ]]; then
+        echo "Configuration file not found at $CONFIG_FILE" >&2
+        return
+    fi
+
+    for (( i = 2; i < COMP_CWORD; i++ )); do
+        if [[ "${COMP_WORDS[i]}" != "--alias" && "${COMP_WORDS[i]}" != -* ]]; then
+            alias_path+=".${COMP_WORDS[i]//\//}"
+        fi
+    done 
+
+    local subkeys=()
+    local all_keys=$(yq eval "$alias_path | keys" "$CONFIG_FILE" | sed 's/- //g')
+
+    for key in $all_keys; do
+        if [[ "$key" != "path" && "$key" != "action" && "$key" != "recursive" && "$key" != "depth" ]]; then
+            subkeys+=("$key")
+        fi
+    done
+
+    if [[ "$current_word" == */ && ${subkeys[@]} =~ ${current_word//\//} ]]; then
+        local depth=$(yq eval "${alias_path}.${current_word//\//}.depth // 1" "$CONFIG_FILE" 2>/dev/null)
+        base_path=$(yq eval "${alias_path}.${current_word//\//}.path" "$CONFIG_FILE")
+        escaped_base_path=${base_path//\//\\\/}
+        full_path=$base_path
+        files=($(ls $full_path))
+        COMPREPLY=( $(compgen -W "${files[*]}" ) )
+        return 0
+    elif [[ "$current_word" == */ ]]; then
+        before_bar=${current_word%/*}
+        full_path=$full_path/${before_bar##*/} 
+        files=($(ls $full_path))
+        COMPREPLY=( $(compgen -W "${files[*]}" ) )
+    elif [[ "$current_word" == */* ]]; then
+        full_path=$full_path/${current_word##*/}
+        files=($(ls $full_path))
+        COMPREPLY=( $(compgen -W "${files[*]}" ) )
+    else 
+        COMPREPLY=($(compgen -W "${subkeys[*]}"))
+    fi
+}
+
+function _dot_completion() {
+    local current_word="${COMP_WORDS[COMP_CWORD]}"
+    local previous_word="${COMP_WORDS[COMP_CWORD-1]}"
+    local options="nav home rc alias source exec preview rename mk del rm"
+
+    if [[ "$previous_word" == "dot" ]]; then
+        COMPREPLY=( $(compgen -W "${options}" -- "$current_word") )
+    elif [[ "${COMP_WORDS[1]}" =~ alias ]]; then
+        _dot_alias_completion
+    elif [[ "$previous_word" == "nav" ]]; then
+        COMPREPLY=( $(compgen -d -- "$current_word") )
+    fi
+}
+
+complete -F _dot_completion dot
+
