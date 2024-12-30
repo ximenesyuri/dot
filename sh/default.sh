@@ -21,5 +21,11 @@ function DOT_DEFAULT_PREVIEW(){
     fzf --preview="cat {}"
 }
 
-DOT_DEFAULT_MAKE_FILE="touch"
-DOT_DEFAULT_MAKE_DIR="mkdir -p"
+function DOT_DEFAULT_MAKE_FILE(){
+    touch "$@"
+}
+
+function DOT_DEFAULT_MAKE_DIR(){
+    mkdir -p "$@"
+}
+

@@ -30,6 +30,7 @@ function dot() {
     DOT_ACTIONS[make]="dot_make mk make"
     DOT_ACTIONS[make_file]="dot_mkf mkf make-dir"
     DOT_ACTIONS[make_dir]="dot_mkd mkd make-dir"
+    DOT_ACTIONS[alias]="dot_alias a alias"
 
     declare -A DOT_FUNCTIONS
     DOT_FUNCTIONS=()

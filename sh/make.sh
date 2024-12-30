@@ -1,9 +1,11 @@
+source ${BASH_SOURCE%/*}/default.sh
+
 function dot_mkf(){
-    "$DOT_DEFAULT_MAKE_FILE" "$@"
+    DOT_DEFAULT_MAKE_FILE "$@"
 }
 
 function dot_mkd(){
-    "$DOT_DEFAULT_MAKE_DIR" "$@"
+    DOT_DEFAULT_MAKE_DIR "$@"
 }
 
 function dot_make(){

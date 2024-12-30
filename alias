@@ -4,19 +4,23 @@ declare -A DOT_ALIASES
 DOT_ALIASES[.]="dot nav"
 DOT_ALIASES[..]="dot nav .."
 DOT_ALIASES[...]="dot nav ..."
-DOT_ALIASES[.,]="dot ls all"
-DOT_ALIASES[,.]="dot ls all"
+DOT_ALIASES[.rc]="dot nav rc"
+DOT_ALIASES[.h]="dot nav h"
+DOT_ALIASES[.lf]="dot lsf"
+DOT_ALIASES[.ld]="dot lsd"
+DOT_ALIASES[.la]="dot lsa"
+DOT_ALIASES[.,]="dot lsa"
+DOT_ALIASES[,.]="dot lsa"
 DOT_ALIASES[.x]="dot x"
-DOT_ALIASES[.h]="dot h"
 DOT_ALIASES[.s]="dot s"
 DOT_ALIASES[.a]="dot a"
 DOT_ALIASES[.p]="dot p"
 DOT_ALIASES[.d]="dot d"
+DOT_ALIASES[.b]="dot d --undo"
 DOT_ALIASES[.n]="dot new"
-DOT_ALIASES[.rc]="dot rc"
 DOT_ALIASES[.rm]="dot rm"
-DOT_ALIASES[.mf]="dot mf"
-DOT_ALIASES[.md]="dot md"
+DOT_ALIASES[.mf]="dot mkf"
+DOT_ALIASES[.md]="dot mkd"
 DOT_ALIASES[.mv]="dot mv"
 
 for alias in ${!DOT_ALIASES[@]}; do
@@ -49,11 +53,11 @@ function _._completion() {
     fi
 }
 
-function _.a_completion(){
+function _.a_completion() {
     local CONFIG_FILE="$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)/yml/dot.yml"
     local current_word="${COMP_WORDS[COMP_CWORD]}"
-    local alias_path=".alias"
-    
+    local alias_path=".aliases"
+
     if [[ ! -f "$CONFIG_FILE" ]]; then
         echo "Configuration file not found at $CONFIG_FILE" >&2
         return
@@ -63,10 +67,10 @@ function _.a_completion(){
         if [[ "${COMP_WORDS[i]}" != "--alias" && "${COMP_WORDS[i]}" != -* ]]; then
             alias_path+=".${COMP_WORDS[i]//\//}"
         fi
-    done 
+    done
 
     local subkeys=()
-    local all_keys=$(yq eval "$alias_path | keys" "$CONFIG_FILE" | sed 's/- //g')
+    local all_keys=$(yq eval "$alias_path | keys" "$CONFIG_FILE" 2>/dev/null | sed 's/- //g')
 
     for key in $all_keys; do
         if [[ "$key" != "path" && "$key" != "action" && "$key" != "recursive" && "$key" != "depth" ]]; then
@@ -74,27 +78,34 @@ function _.a_completion(){
         fi
     done
 
-    if [[ "$current_word" == */ && ${subkeys[@]} =~ ${current_word//\//} ]]; then
-        local depth=$(yq eval "${alias_path}.${current_word//\//}.depth // 1" "$CONFIG_FILE" 2>/dev/null)
-        base_path=$(yq eval "${alias_path}.${current_word//\//}.path" "$CONFIG_FILE")
-        escaped_base_path=${base_path//\//\\\/}
-        full_path=$base_path
-        files=($(ls $full_path))
-        COMPREPLY=( $(compgen -W "${files[*]}" ) )
-        return 0
+    local base_path
+    local full_path
+    local files=()
 
-    # elif [[ "$current_word" == */ ]]; then
-    #     before_bar=${current_word%/*}
-    #     full_path=$full_path/${before_bar##*/} 
-    #     files=($(ls $full_path))
-    #     COMPREPLY=( $(compgen -W "${files[*]}" ) )
-    # elif [[ "$current_word" == */* ]]; then
-    #     full_path=$full_path/${current_word##*/}
-    #     files=($(ls $full_path))
-    #     COMPREPLY=( $(compgen -W "${files[*]}" ) )
+    if [[ "$current_word" == */ ]]; then
+        alias_path+=".$(echo "$current_word" | tr -d '/')"
+        base_path=$(yq eval "${alias_path}.path" "$CONFIG_FILE" 2>/dev/null)
+        full_path=$base_path
+
+        if [[ -d "$full_path" ]]; then
+            files=($(ls -1p "$full_path" | grep '/$'))
+           # echo "Files: ${files[*]}" # Debug statement.
+            COMPREPLY=($(compgen -W "${files[*]}" -- "$current_word"))
+        fi
+
+    elif [[ "$current_word" == */* ]]; then
+        base_path=$(yq eval "${alias_path}.path" "$CONFIG_FILE" 2>/dev/null)
+        new_path="$base_path/${current_word%/*}"
+
+        if [[ -d "$new_path" ]]; then
+            files=($(ls -1p "$new_path"))
+            #echo "Files: ${files[*]}" # Debug statement.
+            COMPREPLY=($(compgen -W "${files[*]}" -- "${current_word##*/}"))
+        fi
         
-    else 
-        COMPREPLY=($(compgen -W "${subkeys[*]}"))
+    else
+        #echo "Subkeys: ${subkeys[*]}" # Debug statement.
+        COMPREPLY=($(compgen -W "${subkeys[*]}" -- "$current_word"))
     fi
 }
 

@@ -1,55 +1,45 @@
 function dot_alias() {
-    if [[ -z "$2" ]]; then
-        local alias_input="${1}"
-    else
-        alias_input=${!#}
-    fi
-    alias_stack=()
-    for ((i = 1; i < $#; i++)); do
-        alias_stack+=("${!i}")
+    local input=("$@")
+    local alias_path=""
+    local depth=0
+    local remaining_input=""
+    local subalias_and_path=0
+
+    for i in "${input[@]}"; do
+        if [[ "$i" == *"/"* ]]; then
+            alias_path+="${i%%/*}"
+            remaining_input="${i#*/}"
+            subalias_and_path=1
+            break
+        else
+            alias_path+="$i."
+        fi
     done
-    local alias_name="${alias_input%%/*}"
-    local remainder_path="${alias_input#*/}"
-    if [[ -z "$2" ]]; then
-        alias_string=$alias_name
+
+    alias_path="${alias_path%.}"
+
+    if [[ "$subalias_and_path" -eq 1 ]]; then
+        local path=$(yq eval ".aliases.$alias_path.path" "$CONFIG_FILE")
+        path="$path/$remaining_input"
+        if [[ -d "$path" ]]; then
+            local action_key=$(yq eval ".aliases.$alias_path.action.dirs" "$CONFIG_FILE")
+        elif [[ -f "$path" ]]; then
+            local action_key=$(yq eval ".aliases.$alias_path.action.files" "$CONFIG_FILE")
+        else
+            echo "error: Invalid path: \"$path\""
+            return 1
+        fi
+        local action="${DOT_FUNCTIONS[$action_key]}"
+        $action "$path"
+
     else
-        alias_string="${alias_stack[*]}.$alias_name"
-        alias_string=${alias_string// /.}
-    fi
-    if [[ "$alias_input" == "$alias_name" ]]; then
-        remainder_path=""
-    fi
-    echo $alias_string
-
-    local alias_dir=$(yq eval ".alias.${alias_string}.path" "$CONFIG_FILE")
-    local recursive=$(yq eval ".alias.${alias_string}.recursive // false" "$CONFIG_FILE")
-    local depth=$(yq eval ".alias.${alias_string}.depth // 0" "$CONFIG_FILE")
-
-    if [[ ! -d "$alias_dir" ]]; then
-        echo "Error: Alias or base directory not valid."
-        return
-    fi
-
-    if [[ -z "$remainder_path" ]]; then
-        dot_nav "$alias_dir"
-        return
-    fi
-
-    local target_path="$alias_dir/$remainder_path"
-
-    if [[ -d "$target_path" ]]; then
-        dot_nav "$target_path"
-        return
-    fi
-
-    if [[ "$recursive" == "true" && "$depth" -ge 0 ]]; then
-        local search_path=$(find "$alias_dir" -mindepth 1 -maxdepth "$depth" -type d -path "$target_path*" -print -quit)
-        if [[ -d "$search_path" ]]; then
-            dot_nav "$search_path"
-            return
+        local path=$(yq eval ".aliases.$alias_path.path" "$CONFIG_FILE")
+        local action_key=$(yq eval ".aliases.$alias_path.action.main" "$CONFIG_FILE")
+        local action="${DOT_FUNCTIONS[$action_key]}"
+        if [[ -n "$action" ]]; then
+            $action $path
+        else
+            echo "Error: Action not found for alias $alias_path"
         fi
     fi
-
-    echo "Error: '$target_path' is not a valid directory."
 }
-
