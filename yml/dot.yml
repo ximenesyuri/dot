@@ -1,0 +1,53 @@
+open:
+  default: vim
+  text:
+    default: vim
+    extension: 
+      txt: vim
+      sh: vim
+      js: vim
+      py: vim
+  image:
+    default: display
+    extension:
+      jpg: display
+      png: display
+      # ...
+      
+  video:
+    default: mplayer
+    extension:
+      mp4: mplayer
+      avi: mplayer
+      # ...
+  
+exec:
+  default: sh
+  extension:
+    py: /path/to/main/venv/bin/python3
+    js: node
+    # ...
+
+trash:
+  path:
+  clean:
+    time: 10 # in days
+    size: 50 # in mb
+
+actions:
+  some_action:
+    options:
+      - option 1
+      - option 2
+    commands:
+      - command 1
+      - command 2
+
+aliases:  
+  dev:
+    path: /home/yx/files/nerd/dev
+    action:
+      main: nav
+      files: open
+      dirs: nav  
+
