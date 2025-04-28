@@ -2,6 +2,7 @@
 
 source ${BASH_SOURCE%/*}/default.sh
 source ${BASH_SOURCE%/*}/ls.sh
+source ${BASH_SOURCE%/*}/helper.sh
 
 function dot_cd() {
     if [[ -n "$DOT_CD" ]]; then
@@ -14,8 +15,16 @@ function dot_cd() {
 function dot_open() {
     local ext=${1##*.}
     local default_cmd=$(yq e ".open.default // \"$DOT_DEFAULT_OPEN\"" $CONFIG_FILE)
-    local cmd=$(yq e ".open.${ext} // \"$default_cmd\"" $CONFIG_FILE)
-    eval "$cmd $1"
+    if is_text_ "$ext"; then
+        local cmd=$(yq e ".open.text.extension.${ext} // .open.text.default // \"$default_cmd\"" $CONFIG_FILE)
+    elif is_image_ "$ext"; then
+        local cmd=$(yq e ".open.image.extension.${ext} // .open.image.default // \"$default_cmd\"" $CONFIG_FILE)
+    elif is_video_ "$ext"; then
+        local cmd=$(yq e ".open.video.extension.${ext} // .open.video.default // \"$default_cmd\"" $CONFIG_FILE)
+    else 
+        local cmd="$default_cmd"
+    fi
+    eval "$cmd \"$1\""
 }
 
 function dot_home(){
@@ -54,7 +63,7 @@ function dot_config(){
     fi
 }
 
-function dot_nav(){
+function dot_nav(){ 
     if [[ "$1" == "-" ]] ||
        [[ "$1" == "..." ]]; then
         shift 1
