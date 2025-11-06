@@ -16,7 +16,6 @@
 
 * `bash`, i.e, a UNIX-based operating system
 * [yq](https://github.com/mikefarah/yq), version `>=4`
-* [fzf](https://github.com/junegunn/fzf) (optional)
 
 # Install
 
@@ -52,7 +51,6 @@ OPTIONS:
     -p, --preview [dir] ........ Open fzf in preview mode for the given directory
     -n, --name [entry].......... Rename the given entry
     -d, --delete [entry] ....... Safely delete the given entry
-    -rm, --remove [entry] ...... Permanently remove the given entry
 ```
 
 # Configuration

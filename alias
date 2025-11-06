@@ -22,6 +22,9 @@ DOT_ALIASES[.rm]="dot rm"
 DOT_ALIASES[.mf]="dot mkf"
 DOT_ALIASES[.md]="dot mkd"
 DOT_ALIASES[.mv]="dot mv"
+DOT_ALIASES[.z]="dot z"
+DOT_ALIASES[,]="dot z"
+DOT_ALIASES[,,]="dot ui"
 
 for alias in ${!DOT_ALIASES[@]}; do
     alias $alias="${DOT_ALIASES[$alias]}"
@@ -44,7 +47,7 @@ function _._completion() {
             local dir=""
             local prefix="$current_word"
         fi
-        COMPREPLY=( $(compgen -f -- "$dir$prefix" | grep -v '^\.') )
+        COMPREPLY=( $(compgen -f -- "$dir$prefix" ) )
         for i in "${!COMPREPLY[@]}"; do
             if [[ -d "${COMPREPLY[i]}" ]]; then
                 COMPREPLY[i]+='/'
@@ -89,7 +92,6 @@ function _.a_completion() {
 
         if [[ -d "$full_path" ]]; then
             files=($(ls -1p "$full_path" | grep '/$'))
-           # echo "Files: ${files[*]}" # Debug statement.
             COMPREPLY=($(compgen -W "${files[*]}" -- "$current_word"))
         fi
 
@@ -99,12 +101,10 @@ function _.a_completion() {
 
         if [[ -d "$new_path" ]]; then
             files=($(ls -1p "$new_path"))
-            #echo "Files: ${files[*]}" # Debug statement.
             COMPREPLY=($(compgen -W "${files[*]}" -- "${current_word##*/}"))
         fi
         
     else
-        #echo "Subkeys: ${subkeys[*]}" # Debug statement.
         COMPREPLY=($(compgen -W "${subkeys[*]}" -- "$current_word"))
     fi
 }

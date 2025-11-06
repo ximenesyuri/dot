@@ -7,6 +7,7 @@ open:
       sh: vim
       js: vim
       py: vim
+
   image:
     default: display
     extension:
@@ -24,8 +25,9 @@ open:
 exec:
   default: sh
   extension:
-    py: /path/to/main/venv/bin/python3
+    py: python3
     js: node
+    html: firefox
     # ...
 
 trash:
@@ -34,15 +36,6 @@ trash:
     time: 10 # in days
     size: 50 # in mb
 
-actions:
-  some_action:
-    options:
-      - option 1
-      - option 2
-    commands:
-      - command 1
-      - command 2
-
 aliases:  
   dev:
     path: /home/yx/files/nerd/dev
@@ -50,4 +43,3 @@ aliases:
       main: nav
       files: open
       dirs: nav  
-

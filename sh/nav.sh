@@ -8,7 +8,7 @@ function dot_cd() {
     if [[ -n "$DOT_CD" ]]; then
         "$DOT_CD" "$@"
     else
-        eval "DOT_DEFAULT_CD $1"
+        eval "DOT_DEFAULT_CD $@"
     fi
 }
 
